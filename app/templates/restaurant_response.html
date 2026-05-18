@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Відповідь ресторану{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow">
+        <div class="empty-state empty-state--center">
+            <p class="eyebrow">Відповідь ресторану</p>
+            <h1>{{ title }}</h1>
+            <p>{{ message }}</p>
+
+            <div class="status-stack status-stack--center">
+                <span class="status status--restaurant-{{ reservation.restaurant_status }}">{{ action_label }}</span>
+                <span class="muted">
+                    {{ reservation.restaurant.name }} • столик {{ reservation.table.table_number }} • {{ reservation.interval_label }} {{ reservation.reservation_time.strftime('%d.%m.%Y') }}
+                </span>
+            </div>
+
+            {% if reservation.special_request %}
+                <div style="max-width:680px; margin:20px auto 18px; padding:16px 18px; text-align:left; background:#fff9ef; border:1px solid #f1dfb8; border-radius:18px;">
+                    <strong style="display:block; margin-bottom:8px; color:#2b2e36;">Додаткові побажання</strong>
+                    <p style="margin:0; color:#5f6675; line-height:1.7;">{{ reservation.special_request }}</p>
+                </div>
+            {% endif %}
+
+            <a class="button button--primary" href="{{ url_for('main.home') }}">Повернутися на головну</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

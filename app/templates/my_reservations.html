@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Мої бронювання{% endblock %}
+{% block page_name %}my-reservations{% endblock %}
+
+{% block content %}
+{% set summary = namespace(pending=0, confirmed=0, rejected=0) %}
+{% for reservation in reservations %}
+    {% if reservation.status == 'pending' %}
+        {% set summary.pending = summary.pending + 1 %}
+    {% elif reservation.status == 'confirmed' %}
+        {% set summary.confirmed = summary.confirmed + 1 %}
+    {% elif reservation.status == 'rejected' %}
+        {% set summary.rejected = summary.rejected + 1 %}
+    {% endif %}
+{% endfor %}
+
+<section class="section section--tight">
+    <div class="container profile-layout">
+        <div class="profile-main-card">
+            <div class="section-heading section-heading--compact">
+                <h1>Мої бронювання</h1>
+            </div>
+
+            <div class="profile-grid">
+                <div>
+                    <span class="profile-label">Ім'я</span>
+                    <strong>{{ current_user.full_name }}</strong>
+                </div>
+                <div>
+                    <span class="profile-label">Електронна пошта</span>
+                    <strong>{{ current_user.email }}</strong>
+                </div>
+                <div>
+                    <span class="profile-label">Актуальні бронювання</span>
+                    <strong>{{ active_reservations|length }}</strong>
+                </div>
+                <div>
+                    <span class="profile-label">Неактивні бронювання</span>
+                    <strong>{{ inactive_reservations|length }}</strong>
+                </div>
+            </div>
+        </div>
+
+        <aside class="profile-sidebar">
+            <div class="sidebar-card">
+                <h2>Потрібна допомога?</h2>
+                <p>Якщо хочете швидко оформити нову заявку, просто поверніться до каталогу ресторанів.</p>
+                <a class="button button--primary button--block" href="{{ url_for('main.restaurants') }}">Забронювати ще</a>
+            </div>
+        </aside>
+    </div>
+</section>
+
+<section class="section section--stats-compact">
+    <div class="container">
+        <div class="stats-strip">
+            <article class="mini-stat-card">
+                <span>{{ reservations|length }}</span>
+                <p>Усього заявок</p>
+            </article>
+            <article class="mini-stat-card">
+                <span>{{ active_reservations|length }}</span>
+                <p>Актуальні</p>
+            </article>
+            <article class="mini-stat-card">
+                <span>{{ inactive_reservations|length }}</span>
+                <p>Неактивні</p>
+            </article>
+            <article class="mini-stat-card">
+                <span>{{ summary.rejected }}</span>
+                <p>Відхилені</p>
+            </article>
+        </div>
+
+        <div class="section-heading section-heading--split section-heading--stats-bridge">
+            <div>
+                <p class="eyebrow">Актуальні бронювання</p>
+                <h2>Очікувані та поточні візити</h2>
+            </div>
+            <div class="filter-pills" data-filter-group="reservations">
+                <button class="filter-pill is-active" type="button" data-filter="all">Усі</button>
+                <button class="filter-pill" type="button" data-filter="pending">Очікують</button>
+                <button class="filter-pill" type="button" data-filter="confirmed">Підтверджені</button>
+            </div>
+        </div>
+
+        <div class="reservation-list reservation-list--dashboard">
+            {% for reservation in active_reservations %}
+                {% set text_logo = restaurant_text_logo_url(reservation.restaurant) %}
+                <article class="reservation-card reservation-card--rich reservation-card--booking" data-filter-item data-status="{{ reservation.status }}">
+                    <div class="reservation-card__content reservation-card__content--booking">
+                        <div class="reservation-card__layout">
+                            <div class="reservation-card__column reservation-card__column--main">
+                                <div class="reservation-card__head reservation-card__head--booking">
+                                    <h3 class="reservation-card__title reservation-card__title--booking">{{ reservation.restaurant.name }} — Столик {{ reservation.table.table_number }}</h3>
+                                    <p class="reservation-card__meta reservation-card__meta--date">{{ reservation.reservation_time.strftime('%d.%m.%Y') }}</p>
+                                </div>
+
+                                <div class="reservation-card__facts reservation-card__facts--booking">
+                                    <span class="reservation-fact reservation-fact--time">{{ reservation.interval_label }}</span>
+                                    <span class="reservation-fact reservation-fact--duration">{{ reservation.duration_label }}</span>
+                                    <span class="reservation-fact reservation-fact--guests">{{ reservation.guests_count }} гостей</span>
+                                    <span class="reservation-fact reservation-fact--address reservation-fact--address-wide">{{ restaurant_address(reservation.restaurant) }}</span>
+                                </div>
+                            </div>
+
+                            <div class="reservation-card__column reservation-card__column--logo">
+                                {% if text_logo %}
+                                    <img class="reservation-card__restaurant-logo" src="{{ text_logo }}" alt="{{ reservation.restaurant.name }}">
+                                {% else %}
+                                    <strong class="reservation-card__restaurant-name-fallback">{{ reservation.restaurant.name }}</strong>
+                                {% endif %}
+                            </div>
+
+                            <div class="reservation-card__column reservation-card__column--status">
+                                <div class="status-stack status-stack--reservation-side reservation-card__statuses">
+                                    <span class="status status--activity-{{ reservation.activity_status }}">{{ activity_status_labels[reservation.activity_status] }}</span>
+                                    <span class="status status--{{ reservation.status }}">{{ status_labels[reservation.status] }}</span>
+                                    <span class="status status--restaurant-{{ reservation.restaurant_status }}">{{ restaurant_status_labels[reservation.restaurant_status] }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="reservation-card__message-group">
+                            <div class="reservation-progress reservation-progress--{{ reservation.user_progress_tone }}">
+                                <strong>{{ reservation.user_progress_title }}</strong>
+                                <p>{{ reservation.user_progress_message }}</p>
+                            </div>
+
+                            {% if reservation.can_cancel_by_user %}
+                                <form method="post" action="{{ url_for('main.cancel_reservation', reservation_id=reservation.id) }}" class="reservation-card__action" data-cancel-confirm-form>
+                                    <button class="button button--small button--danger" type="submit">Скасувати бронювання</button>
+                                </form>
+                            {% endif %}
+
+                            {% if reservation.special_request %}
+                                <p class="reservation-card__note">Побажання: {{ reservation.special_request }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+            {% else %}
+                <div class="empty-state">
+                    <h3>Актуальних бронювань немає</h3>
+                    <p>Якщо бронювання вже завершилися або були відхилені, вони будуть показані нижче у блоці неактивних бронювань.</p>
+                    <a class="button button--primary" href="{{ url_for('main.restaurants') }}">Перейти до ресторанів</a>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="section-heading section-heading--compact section-heading--top-gap">
+            <p class="eyebrow">Неактивні бронювання</p>
+            <h2>Завершені та відхилені заявки</h2>
+        </div>
+
+        <div class="reservation-list reservation-list--dashboard">
+            {% for reservation in inactive_reservations %}
+                {% set text_logo = restaurant_text_logo_url(reservation.restaurant) %}
+                <article class="reservation-card reservation-card--rich reservation-card--completed reservation-card--booking">
+                    <div class="reservation-card__content reservation-card__content--booking">
+                        <div class="reservation-card__layout">
+                            <div class="reservation-card__column reservation-card__column--main">
+                                <div class="reservation-card__head reservation-card__head--booking">
+                                    <h3 class="reservation-card__title reservation-card__title--booking">{{ reservation.restaurant.name }} — Столик {{ reservation.table.table_number }}</h3>
+                                    <p class="reservation-card__meta reservation-card__meta--date">{{ reservation.reservation_time.strftime('%d.%m.%Y') }}</p>
+                                </div>
+
+                                <div class="reservation-card__facts reservation-card__facts--booking">
+                                    <span class="reservation-fact reservation-fact--time">{{ reservation.interval_label }}</span>
+                                    <span class="reservation-fact reservation-fact--duration">{{ reservation.duration_label }}</span>
+                                    <span class="reservation-fact reservation-fact--guests">{{ reservation.guests_count }} гостей</span>
+                                    <span class="reservation-fact reservation-fact--address reservation-fact--address-wide">{{ restaurant_address(reservation.restaurant) }}</span>
+                                </div>
+                            </div>
+
+                            <div class="reservation-card__column reservation-card__column--logo">
+                                {% if text_logo %}
+                                    <img class="reservation-card__restaurant-logo" src="{{ text_logo }}" alt="{{ reservation.restaurant.name }}">
+                                {% else %}
+                                    <strong class="reservation-card__restaurant-name-fallback">{{ reservation.restaurant.name }}</strong>
+                                {% endif %}
+                            </div>
+
+                            <div class="reservation-card__column reservation-card__column--status">
+                                <div class="status-stack status-stack--reservation-side reservation-card__statuses">
+                                    <span class="status status--activity-{{ reservation.activity_status }}">{{ activity_status_labels[reservation.activity_status] }}</span>
+                                    <span class="status status--{{ reservation.status }}">{{ status_labels[reservation.status] }}</span>
+                                    <span class="status status--restaurant-{{ reservation.restaurant_status }}">{{ restaurant_status_labels[reservation.restaurant_status] }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="reservation-card__message-group">
+                            {% if reservation.activity_status == 'completed' %}
+                                <div class="reservation-progress reservation-progress--completed">
+                                    <strong>Візит завершено</strong>
+                                    <p>Час цього бронювання вже минув, тому воно автоматично перейшло в архів минулих візитів.</p>
+                                </div>
+                            {% else %}
+                                <div class="reservation-progress reservation-progress--{{ reservation.user_progress_tone }}">
+                                    <strong>{{ reservation.user_progress_title }}</strong>
+                                    <p>{{ reservation.user_progress_message }}</p>
+                                </div>
+                            {% endif %}
+
+                            {% if reservation.special_request %}
+                                <p class="reservation-card__note">Побажання: {{ reservation.special_request }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </article>
+            {% else %}
+                <div class="empty-state">
+                    <h3>Неактивних бронювань поки немає</h3>
+                    <p>Після завершення часу візиту або після відхилення заявки вона автоматично з’явиться в цьому розділі.</p>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

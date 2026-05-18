@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Головна{% endblock %}
+{% block page_name %}home{% endblock %}
+
+{% block content %}
+{% set hero_restaurant = (featured_restaurants | selectattr('name', 'equalto', 'Corassini') | list | first) or (featured_restaurants[0] if featured_restaurants else none) %}
+
+<section class="section section--tight">
+    <div class="container container--hero">
+        <div class="home-app-shell">
+            <article class="home-app-hero">
+                <div class="home-app-hero__content">
+                    <p class="eyebrow">YourSeat</p>
+                    <h1>Бронюй зручні столики в ресторанах Івано-Франківська</h1>
+                    <p class="home-app-hero__text">Швидкий вибір ресторану, перегляд схеми залу та заявка на бронювання в одному сервісі.</p>
+
+                    <form method="get" action="{{ url_for('main.restaurants') }}" class="home-inline-search">
+                        <label class="home-inline-search__field" for="home-q">
+                            <span>Пошук ресторану</span>
+                            <input id="home-q" type="text" name="q" placeholder="Назва, категорія або адреса">
+                        </label>
+                        <button class="button button--primary" type="submit">Знайти заклад</button>
+                    </form>
+
+                    <div class="home-hero__actions">
+                        <a class="button button--ghost" href="{{ url_for('main.restaurants') }}">Усі ресторани</a>
+                        {% if current_user.is_authenticated and not current_user.is_admin %}
+                            <a class="button button--ghost" href="{{ url_for('main.my_reservations') }}">Мої бронювання</a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="home-app-hero__visual">
+                    {% if hero_restaurant %}
+                        <a class="home-app-hero__visual-link" href="{{ url_for('main.restaurant_detail', restaurant_id=hero_restaurant.id) }}">
+                            <img src="{{ restaurant_image_url(hero_restaurant) }}" alt="{{ hero_restaurant.name }}">
+                            <div class="home-app-hero__floating-card">
+                                <div class="home-app-hero__floating-meta">
+                                    <strong>{{ hero_restaurant.name }}</strong>
+                                    <span class="rating-badge rating-badge--hero">
+                                        <span class="rating-badge__star" aria-hidden="true">★</span>
+                                        {{ '%.1f'|format(restaurant_rating(hero_restaurant)) }} / 5
+                                    </span>
+                                </div>
+                                <span>{{ hero_restaurant.category_list[:2] | join(' / ') }}</span>
+                                <small>{{ hero_restaurant.open_hours }}</small>
+                                <em>Перейти до бронювання</em>
+                            </div>
+                        </a>
+                    {% endif %}
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container container--hero">
+        <div class="section-heading section-heading--compact home-feature-heading">
+            <p class="eyebrow">Як це працює</p>
+            <h2>Три кроки до бронювання</h2>
+        </div>
+
+        <div class="home-steps-grid">
+            <article class="home-step-card">
+                <span class="home-step-card__step">01</span>
+                <span class="home-step-card__icon">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M16 16l4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+                    </svg>
+                </span>
+                <div class="home-step-card__content">
+                    <strong>Обери ресторан</strong>
+                    <p>Знайди заклад за назвою, адресою або категорією.</p>
+                </div>
+            </article>
+            <article class="home-step-card">
+                <span class="home-step-card__step">02</span>
+                <span class="home-step-card__icon">
+                    <img src="{{ url_for('static', filename='img/table-step.png') }}" alt="" aria-hidden="true">
+                </span>
+                <div class="home-step-card__content">
+                    <strong>Обери столик</strong>
+                    <p>Переглянь доступність, схему залу та потрібний часовий інтервал.</p>
+                </div>
+            </article>
+            <article class="home-step-card">
+                <span class="home-step-card__step">03</span>
+                <span class="home-step-card__icon">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"/>
+                        <path d="M8.5 12.5l2.3 2.3 4.7-5.1" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                    </svg>
+                </span>
+                <div class="home-step-card__content">
+                    <strong>Підтверди бронювання</strong>
+                    <p>Надішли заявку та відстежуй її статус у власному кабінеті.</p>
+                </div>
+            </article>
+        </div>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container container--hero">
+        <div class="section-heading section-heading--compact home-feature-heading">
+            <p class="eyebrow">Категорії</p>
+            <h2>Обери тип закладу</h2>
+        </div>
+
+        <div class="category-pill-grid category-pill-grid--featured">
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Українська кухня') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1547592180-85f173990554?auto=format&fit=crop&w=320&q=80&v=borscht" alt="Українська кухня">
+                </span>
+                <strong>Українська кухня</strong>
+            </a>
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Італійська кухня') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=200&q=80" alt="Італійська кухня">
+                </span>
+                <strong>Італійська кухня</strong>
+            </a>
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Європейська кухня') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=200&q=80" alt="Європейська кухня">
+                </span>
+                <strong>Європейська кухня</strong>
+            </a>
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Авторська кухня') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1551218808-94e220e084d2?auto=format&fit=crop&w=200&q=80" alt="Авторська кухня">
+                </span>
+                <strong>Авторська кухня</strong>
+            </a>
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Сніданки') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1484723091739-30a097e8f929?auto=format&fit=crop&w=200&q=80" alt="Сніданки">
+                </span>
+                <strong>Сніданки</strong>
+            </a>
+            <a class="category-pill category-pill--featured" href="{{ url_for('main.restaurants', q='Сімейний ресторан') }}">
+                <span class="category-pill__thumb category-pill__thumb--featured">
+                    <img src="https://images.unsplash.com/photo-1528605105345-5344ea20e269?auto=format&fit=crop&w=200&q=80" alt="Сімейний ресторан">
+                </span>
+                <strong>Сімейний ресторан</strong>
+            </a>
+        </div>
+    </div>
+</section>
+
+<section class="section section--tight">
+    <div class="container container--hero">
+        <div class="section-heading section-heading--compact">
+            <p class="eyebrow">Популярні ресторани</p>
+            <h2>Заклади для швидкого бронювання</h2>
+        </div>
+
+        <div class="restaurant-grid restaurant-grid--featured">
+            {% for restaurant in featured_restaurants %}
+                <article class="restaurant-card restaurant-card--featured restaurant-card--app">
+                    <div class="restaurant-card__media">
+                        <img src="{{ restaurant_image_url(restaurant) }}" alt="{{ restaurant.name }}">
+                    </div>
+                    <div class="restaurant-card__body">
+                        <div class="restaurant-card__topline">
+                            <h3>{{ restaurant.name }}</h3>
+                            <span class="restaurant-card__rating rating-badge">
+                                <span class="rating-badge__star" aria-hidden="true">★</span>
+                                {{ '%.1f'|format(restaurant_rating(restaurant)) }} / 5
+                            </span>
+                        </div>
+                        <p class="restaurant-card__address">{{ restaurant_address(restaurant) }}</p>
+                        <div class="card-tags">
+                            {% for category in restaurant.category_list[:2] %}
+                                <span class="tag">{{ category }}</span>
+                            {% endfor %}
+                            <span class="tag tag--muted">{{ restaurant.open_hours }}</span>
+                        </div>
+                        <a class="button button--primary button--block" href="{{ url_for('main.restaurant_detail', restaurant_id=restaurant.id) }}">Забронювати</a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endblock %}

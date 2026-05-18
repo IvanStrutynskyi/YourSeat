@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Реєстрація{% endblock %}
+{% block page_name %}register{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow">
+        <div class="auth-card auth-card--split">
+            <div class="auth-card__intro">
+                <p class="eyebrow">Створення акаунта</p>
+                <h1>Почніть користуватися YourSeat</h1>
+                <p>Створіть обліковий запис, щоб бронювати столики, зберігати свої заявки та відстежувати рішення адміністратора.</p>
+            </div>
+            <div class="auth-card__form">
+                <form method="post" class="form-grid">
+                    <label>
+                        <span>Повне ім'я</span>
+                        <input type="text" name="full_name" minlength="3" required placeholder="Наприклад, Іван Петренко">
+                    </label>
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" required placeholder="user@example.com">
+                    </label>
+                    <label>
+                        <span>Пароль</span>
+                        <input type="password" name="password" minlength="6" required placeholder="Мінімум 6 символів">
+                    </label>
+                    <label>
+                        <span>Підтвердження пароля</span>
+                        <input type="password" name="password_confirm" minlength="6" required placeholder="Повторіть пароль">
+                    </label>
+                    <button class="button button--primary button--block" type="submit">Зареєструватися</button>
+                </form>
+                <p class="auth-hint">
+                    Уже маєте акаунт?
+                    <a href="{{ url_for('main.login') }}">Увійти</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

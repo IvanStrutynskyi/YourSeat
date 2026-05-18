@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ project_name }}{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Manrope:wght@400;500;600;700;800&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-page="{% block page_name %}default{% endblock %}">
+    <div class="page-shell">
+        <header class="site-header">
+            <div class="container nav">
+                <a class="brand" href="{{ url_for('main.home') }}">
+                    <img class="brand__logo" src="{{ url_for('static', filename='img/yourseat-logo-header.png') }}" alt="Лого YourSeat">
+                    <span class="brand__text">
+                        <strong>YourSeat</strong>
+                    </span>
+                </a>
+
+                <button class="nav-toggle" type="button" aria-label="Відкрити меню" aria-expanded="false">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+
+                <nav class="nav-menu">
+                    <div class="nav-links">
+                        <a href="{{ url_for('main.home') }}">Головна</a>
+                        <a href="{{ url_for('main.restaurants') }}">Ресторани</a>
+                        {% if current_user.is_authenticated and not current_user.is_admin %}
+                            <a href="{{ url_for('main.my_reservations') }}">Мої бронювання</a>
+                        {% endif %}
+                        {% if current_user.is_authenticated and current_user.is_admin %}
+                            <a href="{{ url_for('admin.dashboard') }}">Адмін-панель</a>
+                        {% endif %}
+                    </div>
+
+                    <div class="nav-actions">
+                        {% if current_user.is_authenticated %}
+                            {% if not current_user.is_admin %}
+                                <div class="nav-notice-wrap" data-notice-root data-mark-read-url="{{ url_for('main.mark_notifications_read') }}">
+                                    <button class="nav-notice {% if notification_unread_count %}has-badge{% endif %}" type="button" aria-label="Сповіщення про бронювання" aria-expanded="false" data-notice-toggle>
+                                        <span class="nav-notice__icon">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                                                <path d="M12 3a4 4 0 0 0-4 4v1.1c0 .7-.2 1.4-.5 2L6 13.2V15h12v-1.8l-1.5-3.1a4.9 4.9 0 0 1-.5-2V7a4 4 0 0 0-4-4Z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8"/>
+                                                <path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="1.8"/>
+                                            </svg>
+                                        </span>
+                                        <span class="nav-notice__badge" data-notice-badge {% if not notification_unread_count %}hidden{% endif %}>{{ notification_unread_count }}</span>
+                                    </button>
+
+                                    <div class="nav-notice-panel" data-notice-panel hidden>
+                                        <div class="nav-notice-panel__head">
+                                            <strong>Сповіщення</strong>
+                                            <span data-notice-unread-text>
+                                                {% if notification_unread_count %}
+                                                    {{ notification_unread_count }} непрочитаних
+                                                {% elif user_notifications %}
+                                                    Усі прочитано
+                                                {% else %}
+                                                    Немає новин
+                                                {% endif %}
+                                            </span>
+                                        </div>
+
+                                        <div class="nav-notice-panel__list">
+                                            {% for notification in user_notifications %}
+                                                <article
+                                                    class="nav-notice-item {% if notification.is_read %}is-read{% else %}is-unread{% endif %}"
+                                                    data-notice-item
+                                                    data-notification-id="{{ notification.id }}"
+                                                >
+                                                    <div class="nav-notice-item__meta">
+                                                        <strong>{{ notification.title }}</strong>
+                                                        {% if not notification.is_read %}
+                                                            <span class="nav-notice-item__dot" aria-hidden="true"></span>
+                                                        {% endif %}
+                                                    </div>
+                                                    <p>{{ notification.message }}</p>
+                                                    <small>{{ notification.created_at_display }}</small>
+                                                </article>
+                                            {% else %}
+                                                <div class="nav-notice-empty">
+                                                    <p>У вас ще немає підтверджених бронювань.</p>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+
+                                        <a class="nav-notice-panel__link" href="{{ url_for('main.my_reservations') }}">Перейти до моїх бронювань</a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            <div class="nav-user">
+                                <span class="nav-user__label">{{ 'Адміністратор' if current_user.is_admin else 'Користувач' }}</span>
+                                <strong>{{ current_user.full_name }}</strong>
+                                <a class="nav-user__profile-link" href="{{ url_for('main.profile') }}">Профіль</a>
+                            </div>
+                            <a class="button button--ghost button--compact" href="{{ url_for('main.logout') }}">Вийти</a>
+                        {% else %}
+                            <a class="button button--ghost button--compact" href="{{ url_for('main.login') }}">Вхід</a>
+                            <a class="button button--primary button--compact" href="{{ url_for('main.register') }}">Реєстрація</a>
+                            <a class="nav-admin-link" href="{{ url_for('admin.admin_login') }}">Вхід адміністратора</a>
+                        {% endif %}
+                    </div>
+                </nav>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="container">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        <div class="alerts">
+                            {% for category, message in messages %}
+                                <div class="alert alert--{{ category }}">
+                                    <span>{{ message }}</span>
+                                    <button type="button" class="alert__close" aria-label="Закрити">×</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="site-footer">
+            <div class="container footer-shell">
+                <div class="footer-grid">
+                    <div class="footer-brand-block">
+                        <a class="footer-brand" href="{{ url_for('main.home') }}">
+                            <img class="footer-brand__logo" src="{{ url_for('static', filename='img/yourseat-logo-header.png') }}" alt="Лого YourSeat">
+                            <span class="footer-brand__text">
+                                <strong>YourSeat</strong>
+                            </span>
+                        </a>
+                        <p>YourSeat — сервіс для швидкого пошуку ресторанів та бронювання столиків в Івано-Франківську.</p>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Про нас</h4>
+                        <p>Ми допомагаємо швидко знайти заклад, переглянути доступність столиків і створити заявку на бронювання онлайн.</p>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Навігація</h4>
+                        <div class="footer-links">
+                            <a href="{{ url_for('main.home') }}">Головна</a>
+                            <a href="{{ url_for('main.restaurants') }}">Ресторани</a>
+                            <a href="{{ url_for('main.my_reservations') }}">Мої бронювання</a>
+                            <a href="{{ url_for('main.profile') }}">Профіль</a>
+                        </div>
+                    </div>
+                    <div class="footer-column">
+                        <h4>Контакти</h4>
+                        <div class="footer-links footer-links--contacts">
+                            <span>Підтримка користувачів</span>
+                            <span>Івано-Франківськ</span>
+                            <a href="mailto:hello@yourseat.local">hello@yourseat.local</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="footer-bottom">
+                    <p>© 2026 YourSeat. Усі права захищено.</p>
+                </div>
+            </div>
+        </footer>
+
+        <div class="confirm-modal" data-confirm-modal hidden>
+            <div class="confirm-modal__overlay" data-confirm-close></div>
+            <div
+                class="confirm-modal__dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="cancel-confirm-title"
+                aria-describedby="cancel-confirm-text"
+            >
+                <h3 id="cancel-confirm-title">Скасування бронювання</h3>
+                <p id="cancel-confirm-text">Ви дійсно хочете скасувати бронювання?</p>
+                <p class="confirm-modal__note">Це бронювання неможливо буде відновити.</p>
+                <div class="confirm-modal__actions">
+                    <button class="button button--danger" type="button" data-confirm-accept>Так, скасувати</button>
+                    <button class="button button--ghost" type="button" data-confirm-close>Ні, повернутись</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

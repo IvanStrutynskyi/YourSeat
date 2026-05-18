@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.venv/
+.env
+instance/*
+!instance/.gitkeep
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.log
+*.tmp

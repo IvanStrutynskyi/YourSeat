@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Адмін-панель{% endblock %}
+{% block page_name %}admin-dashboard{% endblock %}
+
+{% block content %}
+<section class="section section--tight">
+    <div class="container">
+        <div class="admin-hero">
+            <div>
+                <p class="eyebrow">Панель керування</p>
+                <h1>Адмін-панель YourSeat</h1>
+                <p>Центр контролю заявок, ресторанів, столиків і користувачів з акцентом на читабельність та швидкі дії.</p>
+            </div>
+            <div class="admin-hero__badge">
+                <strong>{{ stats.pending_reservations }}</strong>
+                <span>нових заявок потребують уваги</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container">
+        <div class="stats-grid stats-grid--admin">
+            <article class="stat-card">
+                <span>{{ stats.users }}</span>
+                <p>Користувачів</p>
+            </article>
+            <article class="stat-card">
+                <span>{{ stats.restaurants }}</span>
+                <p>Ресторанів</p>
+            </article>
+            <article class="stat-card">
+                <span>{{ stats.tables }}</span>
+                <p>Столиків</p>
+            </article>
+            <article class="stat-card">
+                <span>{{ stats.pending_reservations }}</span>
+                <p>Заявок очікує</p>
+            </article>
+        </div>
+
+        <div class="admin-tabs admin-tabs--panel">
+            <button class="admin-tabs__button is-active" type="button" data-tab-target="reservations">Заявки</button>
+            <button class="admin-tabs__button" type="button" data-tab-target="restaurants">Ресторани</button>
+            <button class="admin-tabs__button" type="button" data-tab-target="tables">Столики</button>
+            <button class="admin-tabs__button" type="button" data-tab-target="users">Користувачі</button>
+        </div>
+
+        <section class="admin-section is-active" id="reservations" data-tab-panel="reservations">
+            <div class="panel-card">
+                <div class="section-heading section-heading--compact">
+                    <div>
+                        <p class="eyebrow">Модуль бронювань</p>
+                        <h2>Усі заявки на бронювання</h2>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Користувач</th>
+                                <th>Ресторан</th>
+                                <th>Столик</th>
+                                <th>Інтервал</th>
+                                <th>Гості</th>
+                                <th>Фінальний статус</th>
+                                <th>Статус ресторану</th>
+                                <th>Дії</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for reservation in reservations %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ reservation.user.full_name }}</strong><br>
+                                        <span class="muted">{{ reservation.user.email }}</span>
+                                    </td>
+                                    <td>{{ reservation.restaurant.name }}</td>
+                                    <td>{{ reservation.table.table_number }}</td>
+                                    <td>
+                                        <strong>{{ reservation.reservation_time.strftime('%d.%m.%Y') }}</strong><br>
+                                        <span class="muted">{{ reservation.interval_label }} • {{ reservation.duration_label }}</span>
+                                        {% if reservation.special_request %}
+                                            <br><span class="muted">Побажання: {{ reservation.special_request }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ reservation.guests_count }}</td>
+                                    <td>
+                                        <span class="status status--{{ reservation.status }}">
+                                            {{ status_labels[reservation.status] }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="status-stack">
+                                            <span class="status status--restaurant-{{ reservation.restaurant_status }}">
+                                                {{ restaurant_status_labels[reservation.restaurant_status] }}
+                                            </span>
+                                            {% if reservation.restaurant_email_sent_at %}
+                                                <span class="muted">Надіслано: {{ reservation.restaurant_email_sent_at_display }}</span>
+                                            {% endif %}
+                                            {% if reservation.restaurant_responded_at %}
+                                                <span class="muted">Відповідь: {{ reservation.restaurant_responded_at_display }}</span>
+                                            {% endif %}
+                                            {% if reservation.cancelled_at %}
+                                                <span class="muted">Скасовано: {{ reservation.cancelled_at_display }}</span>
+                                            {% endif %}
+                                            {% if reservation.status == 'cancelled_by_user' and reservation.restaurant_status == 'approved' and not reservation.cancellation_email_sent_at %}
+                                                <span class="muted">Користувач скасував заявку після погодження рестораном</span>
+                                            {% endif %}
+                                            {% if reservation.cancellation_email_sent_at %}
+                                                <span class="muted">Ресторан повідомлено: {{ reservation.cancellation_email_sent_at_display }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="inline-actions inline-actions--stack">
+                                            {% if reservation.can_notify_restaurant_about_cancellation %}
+                                                <form method="post" action="{{ url_for('admin.notify_restaurant_about_cancellation', reservation_id=reservation.id) }}">
+                                                    <button class="button button--small button--ghost" type="submit">Повідомити ресторан про скасування</button>
+                                                </form>
+                                            {% elif reservation.status == 'cancelled_by_user' and reservation.cancellation_email_sent_at %}
+                                                <span class="muted">Ресторан уже повідомлено про скасування</span>
+                                            {% elif reservation.status == 'cancelled_by_user' %}
+                                                <span class="muted">Користувач самостійно скасував заявку</span>
+                                            {% elif reservation.can_send_to_restaurant %}
+                                                <form method="post" action="{{ url_for('admin.send_request_to_restaurant', reservation_id=reservation.id) }}">
+                                                    <button class="button button--small button--ghost" type="submit">Надіслати запит ресторану</button>
+                                                </form>
+                                            {% elif reservation.restaurant_status == 'sent' and reservation.status == 'pending' %}
+                                                <span class="muted">Очікуємо відповідь ресторану</span>
+                                            {% endif %}
+
+                                            {% if reservation.can_finalize_confirmation %}
+                                                <form method="post" action="{{ url_for('admin.update_reservation_status', reservation_id=reservation.id) }}">
+                                                    <input type="hidden" name="status" value="confirmed">
+                                                    <button class="button button--small button--primary" type="submit">Фінально підтвердити</button>
+                                                </form>
+                                                <form method="post" action="{{ url_for('admin.update_reservation_status', reservation_id=reservation.id) }}">
+                                                    <input type="hidden" name="status" value="rejected">
+                                                    <button class="button button--small button--danger" type="submit">Відхилити</button>
+                                                </form>
+                                            {% elif reservation.can_finalize_rejection %}
+                                                <form method="post" action="{{ url_for('admin.update_reservation_status', reservation_id=reservation.id) }}">
+                                                    <input type="hidden" name="status" value="rejected">
+                                                    <button class="button button--small button--danger" type="submit">Відхилити</button>
+                                                </form>
+                                            {% elif reservation.status != 'pending' %}
+                                                <span class="muted">Фінальне рішення прийнято</span>
+                                            {% elif reservation.restaurant_status == 'not_sent' %}
+                                                <span class="muted">Надішліть запит ресторану</span>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr>
+                                    <td colspan="8">Заявок поки немає.</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="admin-section" id="restaurants" data-tab-panel="restaurants">
+            <div class="panel-card">
+                <div class="section-heading section-heading--compact">
+                    <p class="eyebrow">Керування закладами</p>
+                    <h2>Додати ресторан</h2>
+                </div>
+                <form method="post" action="{{ url_for('admin.create_restaurant') }}" class="form-grid form-grid--two-columns">
+                    <label>
+                        <span>Назва</span>
+                        <input type="text" name="name" required>
+                    </label>
+                    <label>
+                        <span>Кухня</span>
+                        <input type="text" name="cuisine" required>
+                    </label>
+                    <label>
+                        <span>Категорії</span>
+                        <input type="text" name="categories" required placeholder="Європейська кухня, Сніданки">
+                    </label>
+                    <label>
+                        <span>Адреса</span>
+                        <input type="text" name="address" required>
+                    </label>
+                    <label>
+                        <span>Телефон</span>
+                        <input type="text" name="phone" required>
+                    </label>
+                    <label>
+                        <span>Відкриття</span>
+                        <input type="time" name="opening_time" required>
+                    </label>
+                    <label>
+                        <span>Закриття</span>
+                        <input type="time" name="closing_time" required>
+                    </label>
+                    <label>
+                        <span>URL зображення</span>
+                        <input type="text" name="image_url" required>
+                    </label>
+                    <label class="full-width">
+                        <span>Google Maps URL</span>
+                        <input type="url" name="maps_url" required placeholder="https://www.google.com/maps/search/...">
+                    </label>
+                    <label class="full-width">
+                        <span>Опис</span>
+                        <textarea name="description" rows="4" required></textarea>
+                    </label>
+                    <button class="button button--primary" type="submit">Додати ресторан</button>
+                </form>
+            </div>
+
+            <div class="admin-card-grid">
+                {% for restaurant in restaurants %}
+                    <details class="manage-card">
+                        <summary>
+                            <span>{{ restaurant.name }}</span>
+                            <small>{{ restaurant.category_list[:2] | join(' / ') }} / {{ restaurant_address(restaurant) }}</small>
+                        </summary>
+                        <form method="post" action="{{ url_for('admin.update_restaurant', restaurant_id=restaurant.id) }}" class="form-grid form-grid--two-columns">
+                            <label>
+                                <span>Назва</span>
+                                <input type="text" name="name" value="{{ restaurant.name }}" required>
+                            </label>
+                            <label>
+                                <span>Кухня</span>
+                                <input type="text" name="cuisine" value="{{ restaurant.cuisine }}" required>
+                            </label>
+                            <label>
+                                <span>Категорії</span>
+                                <input type="text" name="categories" value="{{ restaurant.categories }}" required>
+                            </label>
+                            <label>
+                                <span>Адреса</span>
+                                <input type="text" name="address" value="{{ restaurant_address(restaurant) }}" required>
+                            </label>
+                            <label>
+                                <span>Телефон</span>
+                                <input type="text" name="phone" value="{{ restaurant.phone }}" required>
+                            </label>
+                            <label>
+                                <span>Відкриття</span>
+                                <input type="time" name="opening_time" value="{{ restaurant.opening_time.strftime('%H:%M') if restaurant.opening_time else '' }}" required>
+                            </label>
+                            <label>
+                                <span>Закриття</span>
+                                <input type="time" name="closing_time" value="{{ restaurant.closing_time.strftime('%H:%M') if restaurant.closing_time else '' }}" required>
+                            </label>
+                            <label>
+                                <span>URL зображення</span>
+                                <input type="text" name="image_url" value="{{ restaurant_image_url(restaurant) }}" required>
+                            </label>
+                            <label class="full-width">
+                                <span>Google Maps URL</span>
+                                <input type="url" name="maps_url" value="{{ restaurant.maps_url }}" required>
+                            </label>
+                            <label class="full-width">
+                                <span>Опис</span>
+                                <textarea name="description" rows="4" required>{{ restaurant.description }}</textarea>
+                            </label>
+                            <div class="inline-actions">
+                                <button class="button button--primary" type="submit">Зберегти зміни</button>
+                            </div>
+                        </form>
+                        <form method="post" action="{{ url_for('admin.delete_restaurant', restaurant_id=restaurant.id) }}">
+                            <button class="button button--danger" type="submit">Видалити ресторан</button>
+                        </form>
+                    </details>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="admin-section" id="tables" data-tab-panel="tables">
+            <div class="panel-card">
+                <div class="section-heading section-heading--compact">
+                    <p class="eyebrow">Керування столиками</p>
+                    <h2>Додати столик</h2>
+                </div>
+                <form method="post" action="{{ url_for('admin.create_table') }}" class="form-grid form-grid--two-columns">
+                    <label>
+                        <span>Ресторан</span>
+                        <select name="restaurant_id" required>
+                            <option value="">Оберіть ресторан</option>
+                            {% for restaurant in restaurants %}
+                                <option value="{{ restaurant.id }}">{{ restaurant.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Номер столика</span>
+                        <input type="text" name="table_number" required>
+                    </label>
+                    <label>
+                        <span>Кількість місць</span>
+                        <input type="number" name="seats" min="1" required>
+                    </label>
+                    <label>
+                        <span>Розташування</span>
+                        <input type="text" name="location" required>
+                    </label>
+                    <label class="checkbox-field">
+                        <input type="checkbox" name="is_active" checked>
+                        <span>Столик активний</span>
+                    </label>
+                    <button class="button button--primary" type="submit">Додати столик</button>
+                </form>
+            </div>
+
+            <div class="admin-card-grid">
+                {% for table in tables %}
+                    <details class="manage-card">
+                        <summary>
+                            <span>{{ table.restaurant.name }} • {{ table.table_number }}</span>
+                            <small>{{ table.seats }} місць • {{ table.location }}</small>
+                        </summary>
+                        <form method="post" action="{{ url_for('admin.update_table', table_id=table.id) }}" class="form-grid">
+                            <label>
+                                <span>Номер столика</span>
+                                <input type="text" name="table_number" value="{{ table.table_number }}" required>
+                            </label>
+                            <label>
+                                <span>Кількість місць</span>
+                                <input type="number" name="seats" min="1" value="{{ table.seats }}" required>
+                            </label>
+                            <label>
+                                <span>Розташування</span>
+                                <input type="text" name="location" value="{{ table.location }}" required>
+                            </label>
+                            <label class="checkbox-field">
+                                <input type="checkbox" name="is_active" {% if table.is_active %}checked{% endif %}>
+                                <span>Столик активний</span>
+                            </label>
+                            <div class="inline-actions">
+                                <button class="button button--primary" type="submit">Оновити столик</button>
+                            </div>
+                        </form>
+                        <form method="post" action="{{ url_for('admin.delete_table', table_id=table.id) }}">
+                            <button class="button button--danger" type="submit">Видалити столик</button>
+                        </form>
+                    </details>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="admin-section" id="users" data-tab-panel="users">
+            <div class="panel-card">
+                <div class="section-heading section-heading--compact">
+                    <p class="eyebrow">Користувачі системи</p>
+                    <h2>Список користувачів</h2>
+                </div>
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Ім'я</th>
+                                <th>Email</th>
+                                <th>Роль</th>
+                                <th>Дата реєстрації</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users %}
+                                <tr>
+                                    <td>{{ user.full_name }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ 'Адміністратор' if user.is_admin else 'Користувач' }}</td>
+                                    <td>{{ user.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </div>
+</section>
+{% endblock %}

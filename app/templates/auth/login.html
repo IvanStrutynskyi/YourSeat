@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | Вхід{% endblock %}
+{% block page_name %}login{% endblock %}
+
+{% block content %}
+<section class="section">
+    <div class="container narrow">
+        <div class="auth-card auth-card--split">
+            <div class="auth-card__intro">
+                <p class="eyebrow">Вхід користувача</p>
+                <h1>Поверніться до своїх бронювань</h1>
+                <p>Увійдіть, щоб переглядати ресторани, створювати нові заявки та відстежувати їх статус.</p>
+            </div>
+            <div class="auth-card__form">
+                <form method="post" class="form-grid" data-login-lock-form data-lock-seconds="{{ login_lock_seconds or 0 }}">
+                    <label>
+                        <span>Email</span>
+                        <input type="email" name="email" required placeholder="user@example.com" value="{{ form_email or '' }}">
+                    </label>
+                    <label>
+                        <span>Пароль</span>
+                        <input type="password" name="password" minlength="6" required placeholder="Введіть пароль">
+                    </label>
+                    <p class="auth-lock-note{% if not login_locked %} is-hidden{% endif %}" data-lock-note>
+                        Забагато невдалих спроб. Спробуйте через
+                        <strong data-lock-timer>{{ login_lock_timer_label or "01:00" }}</strong>
+                    </p>
+                    <button class="button button--primary button--block" type="submit" data-lock-submit {% if login_locked %}disabled{% endif %}>Увійти</button>
+                </form>
+                <p class="auth-hint">
+                    Ще не маєте акаунта?
+                    <a href="{{ url_for('main.register') }}">Зареєструватися</a>
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}YourSeat | {{ restaurant.name }}{% endblock %}
+{% block page_name %}restaurant-detail{% endblock %}
+
+{% macro render_floorplan_table(table, selected_start, selected_end, booked_table_ids, selected_table_id) %}
+    {% if table %}
+        {% set table_unavailable = (not table.is_active) or (selected_start and selected_end and table.id in booked_table_ids) %}
+        {% set display_seats = 6 if table.seats >= 6 else 4 if table.seats >= 4 else 2 %}
+        {% set table_status = 'Зайнятий' if table_unavailable else 'Вільний' %}
+        <button
+            type="button"
+            class="table-node table-node--{{ display_seats }} {% if table_unavailable %}is-unavailable{% else %}is-available{% endif %} {% if selected_table_id|string == table.id|string %}is-selected{% endif %}"
+            data-table-option
+            data-table-id="{{ table.id }}"
+            data-table-seats="{{ table.seats }}"
+            data-table-number="{{ table.table_number }}"
+            {% if table_unavailable %}disabled{% endif %}
+        >
+            <span class="table-node__chair-set" aria-hidden="true">
+                {% for _ in range(display_seats) %}
+                    <span class="table-node__chair"></span>
+                {% endfor %}
+            </span>
+            <span class="table-node__label">{{ table.table_number }}</span>
+            <span class="table-node__meta">{{ table.seats }} місць</span>
+            <span class="table-node__tooltip">Столик {{ table.table_number }} • {{ table.seats }} місць • {{ table_status }}</span>
+        </button>
+    {% else %}
+        <div class="floorplan-slot-placeholder" aria-hidden="true"></div>
+    {% endif %}
+{% endmacro %}
+
+{% macro render_floorplan_slot(tables, index, selected_start, selected_end, booked_table_ids, selected_table_id) %}
+    {% set table = tables[index] if index is not none and index < tables|length else none %}
+    {{ render_floorplan_table(table, selected_start, selected_end, booked_table_ids, selected_table_id) }}
+{% endmacro %}
+
+{% block content %}
+<section class="section section--tight">
+    <div class="container container--hero">
+        <a class="back-link" href="{{ url_for('main.restaurants') }}">← Назад до списку ресторанів</a>
+
+        <div class="detail-shell detail-shell--wide">
+            <article class="detail-main-card">
+                <div class="detail-main-card__image">
+                    <img src="{{ restaurant_image_url(restaurant) }}" alt="{{ restaurant.name }}">
+                </div>
+                <div class="detail-main-card__content">
+                    <div class="card-tags">
+                        {% for category in restaurant.category_list[:2] %}
+                            <span class="tag">{{ category }}</span>
+                        {% endfor %}
+                        <span class="tag tag--muted">{{ restaurant.open_hours }}</span>
+                    </div>
+                    <h1>{{ restaurant.name }}</h1>
+                    <p>{{ restaurant.description }}</p>
+                    <div class="detail-facts-grid">
+                        <article>
+                            <h3>Контакти</h3>
+                            <p>Телефон: {{ restaurant.phone }}</p>
+                            <p>Адреса: {{ restaurant_address(restaurant) }}</p>
+                        </article>
+                        <article>
+                            <h3>Формат візиту</h3>
+                            <p>Оберіть дату, час початку і тривалість, перевірте доступність столиків та оформіть заявку на зручний інтервал.</p>
+                        </article>
+                    </div>
+                </div>
+            </article>
+
+            <aside class="detail-sidebar">
+                <div class="sidebar-card sidebar-card--accent">
+                    <p class="eyebrow">Оформлення бронювання</p>
+                    <h2>Швидкий перехід до заявки</h2>
+                    <p>Система автоматично враховує часовий інтервал бронювання, тому столик не можна зайняти на час, що перетинається з іншою заявкою.</p>
+                    <a class="button button--primary button--block" href="#booking-form">Перейти до бронювання</a>
+                </div>
+                <div class="sidebar-card location-card">
+                    <p class="eyebrow">Розташування</p>
+                    <div class="location-card__preview">
+                        <div class="location-card__map-shell">
+                            <iframe
+                                class="location-card__map"
+                                src="{{ restaurant_maps_embed_url(restaurant) }}"
+                                width="100%"
+                                height="220"
+                                style="border:0;"
+                                loading="lazy"
+                                referrerpolicy="no-referrer-when-downgrade"
+                                title="Карта {{ restaurant.name }}"
+                            ></iframe>
+                            <a
+                                class="location-card__map-link"
+                                href="{{ restaurant.maps_url }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Відкрити {{ restaurant.name }} у Google Maps"
+                            ></a>
+                        </div>
+                        <div class="location-card__meta">
+                            <strong>{{ restaurant.name }}</strong>
+                            <span>{{ restaurant_address(restaurant) }}</span>
+                        </div>
+                        <a
+                            class="location-card__button"
+                            href="{{ restaurant.maps_url }}"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >Відкрити в Google Maps</a>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+</section>
+
+{% set floorplan_tables = restaurant.tables | sort(attribute='id') | list %}
+{% set central_bar_restaurants = ['Fabbrica', 'Corassini', 'Ambasada', 'Sapori', 'Десятка'] %}
+{% set layout_variant = 'central-bar' if restaurant.name in central_bar_restaurants else 'corner-bar' %}
+{% set floorplan_orders = {
+    'Fabbrica': [2, 7, 0, 10, 5, 8, 3, 11, 1, 6, 4, 9],
+    'Corassini': [5, 1, 8, 0, 10, 3, 6, 2, 11, 4, 7, 9],
+    'Ambasada': [4, 9, 2, 11, 0, 7, 10, 3, 5, 1, 8, 6],
+    'Sapori': [8, 2, 6, 1, 11, 4, 0, 9, 3, 7, 5, 10],
+    'Десятка': [3, 10, 5, 7, 1, 8, 11, 0, 6, 2, 9, 4],
+    'Urban Space 100': [6, 0, 8, 3, 11, 4, 2, 9, 5, 1, 10, 7],
+    'Delikacia': [1, 5, 9, 2, 6, 11, 0, 4, 8, 3, 7, 10],
+    'Fayno': [10, 2, 7, 0, 4, 9, 1, 11, 5, 8, 3, 6],
+    'Фамілія': [4, 11, 1, 7, 9, 3, 6, 0, 10, 2, 8, 5],
+    'Terrace': [2, 8, 5, 10, 0, 7, 11, 4, 9, 1, 6, 3],
+} %}
+{% set display_order = floorplan_orders.get(restaurant.name, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) %}
+
+<section class="section">
+    <div
+        class="container container--hero booking-layout booking-layout--wide"
+        data-booking-hours
+        data-opening-time="{{ restaurant.opening_time.strftime('%H:%M') }}"
+        data-closing-time="{{ restaurant.closing_time.strftime('%H:%M') }}"
+        data-current-datetime="{{ current_local_iso }}"
+        data-invalid-message="Неможливо створити бронювання на обраний час"
+    >
+        <div class="panel-card">
+            <div class="section-heading section-heading--split section-heading--compact">
+                <div>
+                    <p class="eyebrow">Вибір столика</p>
+                    <h2>Схема залу</h2>
+                </div>
+            </div>
+
+            <form method="get" class="form-grid form-grid--availability">
+                <label>
+                    <span>Дата</span>
+                    <input
+                        type="date"
+                        name="reservation_date"
+                        value="{{ form_data.reservation_date }}"
+                        data-min-today="true"
+                        data-sync-target="booking_date"
+                    >
+                </label>
+                <label>
+                    <span>Час початку</span>
+                    <select
+                        name="reservation_time"
+                        data-sync-target="booking_time"
+                        data-time-select
+                    >
+                        <option value="">Оберіть час</option>
+                        {% if form_data.reservation_time %}
+                            <option value="{{ form_data.reservation_time }}" selected>{{ form_data.reservation_time }}</option>
+                        {% endif %}
+                    </select>
+                </label>
+                <label>
+                    <span>Тривалість</span>
+                    <select name="duration_minutes" data-sync-target="booking_duration">
+                        {% for minutes, label in duration_options %}
+                            <option value="{{ minutes }}" {% if form_data.duration_minutes|string == minutes|string %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <button class="button button--primary" type="submit">Показати доступність</button>
+            </form>
+
+            <div class="floorplan-card">
+                <div class="floorplan-stage floorplan-stage--{{ layout_variant }}">
+                    <div class="floorplan-stage__header">
+                        <div class="floorplan-stage__label">Зал {{ restaurant.name }}</div>
+                        <div class="floorplan-stage__hint">Оберіть столик на схемі ресторану</div>
+                    </div>
+
+                    {% if layout_variant == 'central-bar' %}
+                        <div class="floorplan-map floorplan-map--central-bar">
+                            <div class="floorplan-zone floorplan-zone--top">
+                                {% for table_index in display_order[:4] %}
+                                    {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                {% endfor %}
+                            </div>
+
+                            <div class="floorplan-aisle" aria-hidden="true"></div>
+
+                            <div class="floorplan-zone floorplan-zone--bar-center">
+                                <div class="floorplan-zone__side">
+                                    {{ render_floorplan_slot(floorplan_tables, display_order[4] if display_order|length > 4 else none, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                </div>
+                                <div class="floorplan-bar">BAR</div>
+                                <div class="floorplan-zone__side">
+                                    {{ render_floorplan_slot(floorplan_tables, display_order[5] if display_order|length > 5 else none, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                </div>
+                            </div>
+
+                            <div class="floorplan-aisle" aria-hidden="true"></div>
+
+                            <div class="floorplan-zone floorplan-zone--bottom">
+                                {% for table_index in display_order[6:10] %}
+                                    {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                {% endfor %}
+                            </div>
+
+                            {% if floorplan_tables|length > 10 %}
+                                <div class="floorplan-aisle floorplan-aisle--compact" aria-hidden="true"></div>
+                                <div class="floorplan-zone floorplan-zone--footer">
+                                    {% for table_index in display_order[10:] %}
+                                        {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% else %}
+                        <div class="floorplan-map floorplan-map--corner-bar">
+                            <div class="floorplan-zone floorplan-zone--corner-top">
+                                <div class="floorplan-zone__pair">
+                                    {% for table_index in display_order[:2] %}
+                                        {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                    {% endfor %}
+                                </div>
+                                <div class="floorplan-bar">BAR</div>
+                            </div>
+
+                            <div class="floorplan-aisle" aria-hidden="true"></div>
+
+                            <div class="floorplan-zone floorplan-zone--middle">
+                                {% for table_index in display_order[2:6] %}
+                                    {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                {% endfor %}
+                            </div>
+
+                            <div class="floorplan-aisle" aria-hidden="true"></div>
+
+                            <div class="floorplan-zone floorplan-zone--bottom">
+                                {% for table_index in display_order[6:10] %}
+                                    {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                {% endfor %}
+                            </div>
+
+                            {% if floorplan_tables|length > 10 %}
+                                <div class="floorplan-aisle floorplan-aisle--compact" aria-hidden="true"></div>
+                                <div class="floorplan-zone floorplan-zone--footer">
+                                    {% for table_index in display_order[10:] %}
+                                        {{ render_floorplan_slot(floorplan_tables, table_index, selected_start, selected_end, booked_table_ids, form_data.table_id) }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="panel-card" id="booking-form">
+            <div class="section-heading section-heading--compact">
+                    <p class="eyebrow">Форма бронювання</p>
+                    <h2>Оформлення заявки</h2>
+                    <p class="muted">Доступний час: від {{ restaurant.opening_time.strftime('%H:%M') }} до {{ restaurant.closing_time.strftime('%H:%M') }} з урахуванням тривалості бронювання.</p>
+                </div>
+
+            {% if current_user.is_authenticated and not current_user.is_admin %}
+                <form method="post" class="form-grid form-grid--booking-window">
+                    <label>
+                        <span>Дата</span>
+                        <input
+                            type="date"
+                            name="reservation_date"
+                            id="booking_date"
+                            required
+                            value="{{ form_data.reservation_date }}"
+                            data-min-today="true"
+                        >
+                    </label>
+                    <label>
+                        <span>Час початку</span>
+                        <select
+                            name="reservation_time"
+                            id="booking_time"
+                            required
+                            data-time-select
+                        >
+                            <option value="">Оберіть час</option>
+                            {% if form_data.reservation_time %}
+                                <option value="{{ form_data.reservation_time }}" selected>{{ form_data.reservation_time }}</option>
+                            {% endif %}
+                        </select>
+                    </label>
+                    <label>
+                        <span>Тривалість</span>
+                        <select name="duration_minutes" id="booking_duration" required>
+                            {% for minutes, label in duration_options %}
+                                <option value="{{ minutes }}" {% if form_data.duration_minutes|string == minutes|string %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label class="full-width">
+                        <span>Оберіть столик</span>
+                        <select name="table_id" required data-table-select>
+                            <option value="">Оберіть столик</option>
+                            {% for table in available_tables | sort(attribute='id') %}
+                                <option value="{{ table.id }}" {% if form_data.table_id|string == table.id|string %}selected{% endif %}>
+                                    {{ table.table_number }} • {{ table.seats }} місць
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <div class="selected-table-card full-width" data-selected-table-card>
+                        <strong>Вибраний столик</strong>
+                        <span data-selected-table-text>
+                            {% if form_data.table_id %}
+                                Столик обрано у формі
+                            {% else %}
+                                Натисніть на столик на схемі залу
+                            {% endif %}
+                        </span>
+                    </div>
+                    <div class="selected-table-card full-width">
+                        <strong>Інтервал бронювання</strong>
+                        <span data-reservation-interval-text>
+                            {% if selected_start and selected_end %}
+                                Ваше бронювання триватиме з {{ selected_start.strftime('%H:%M') }} до {{ selected_end.strftime('%H:%M') }} {{ selected_start.strftime('%d.%m.%Y') }}
+                            {% else %}
+                                Оберіть дату, час початку і тривалість бронювання
+                            {% endif %}
+                        </span>
+                    </div>
+                    <label>
+                        <span>Кількість гостей</span>
+                        <input
+                            type="number"
+                            name="guests_count"
+                            min="1"
+                            max="12"
+                            required
+                            value="{{ form_data.guests_count }}"
+                            placeholder="Наприклад, 4"
+                        >
+                    </label>
+                    <label class="full-width">
+                        <span>Додаткові побажання</span>
+                        <textarea name="special_request" rows="5" maxlength="255" placeholder="Наприклад, побажання щодо розміщення або особливостей обслуговування">{{ form_data.special_request }}</textarea>
+                    </label>
+                    <button class="button button--primary button--block full-width" type="submit">Підтвердити бронювання</button>
+                </form>
+            {% elif current_user.is_authenticated and current_user.is_admin %}
+                <div class="empty-state">
+                    <h3>Режим адміністратора</h3>
+                    <p>Щоб перевірити користувацький сценарій бронювання, увійдіть під звичайним обліковим записом.</p>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>Потрібен вхід у систему</h3>
+                    <p>Щоб надіслати заявку на бронювання, спочатку увійдіть до системи або зареєструйтеся.</p>
+                    <a class="button button--primary button--block" href="{{ url_for('main.login') }}">Увійти</a>
+                </div>
+            {% endif %}
+            <div class="booking-footer">
+                <img
+                    class="booking-footer__logo"
+                    src="{{ url_for('static', filename='img/yourseat-logo-header.png') }}"
+                    alt="YourSeat"
+                >
+                <p class="booking-footer__name">YourSeat</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
